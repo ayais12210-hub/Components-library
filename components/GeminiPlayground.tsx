@@ -5,7 +5,6 @@ import { Button } from './ui/Button';
 import { TextArea } from './ui/Input';
 import { Text } from './ui/Typography';
 import { Terminal } from './ui/Terminal';
-import { Tabs, TabsList, TabsTrigger } from './ui/Tabs';
 import { useToast } from './ui/Toast';
 import * as UIComponents from './ui/Card'; 
 import * as ButtonComponents from './ui/Button';
@@ -21,6 +20,8 @@ declare global {
 }
 
 type ViewMode = 'terminal' | 'preview' | 'split';
+type Language = 'ts' | 'js' | 'html';
+type Style = 'tailwind' | 'css';
 
 // Scope for React Live Runner
 const SCOPE = {
@@ -39,13 +40,31 @@ export const GeminiPlayground: React.FC = () => {
   const [response, setResponse] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('split');
-  const [codeType, setCodeType] = useState<CodeType>('react');
+  
+  // Independent UI State
+  const [language, setLanguage] = useState<Language>('ts');
+  const [style, setStyle] = useState<Style>('tailwind');
+
   const [isCopied, setIsCopied] = useState(false);
   
   const { addToast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previewRootRef = useRef<ReactDOM.Root | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  // Derived CodeType for API
+  const getCodeType = (): CodeType => {
+    if (language === 'html') {
+      return style === 'tailwind' ? 'html-tailwind' : 'html-css';
+    }
+    if (language === 'js') {
+      return style === 'tailwind' ? 'react-js' : 'react-js-css';
+    }
+    // Default to TS
+    return style === 'tailwind' ? 'react-ts' : 'react-ts-css';
+  };
+
+  const codeType = getCodeType();
 
   const scrollToBottom = () => {
     if (viewMode !== 'preview') {
@@ -64,7 +83,7 @@ export const GeminiPlayground: React.FC = () => {
     if (completeMatch) return completeMatch[1].trim();
     const streamMatch = text.match(/```(?:html|css|jsx|tsx|javascript|typescript)?([\s\S]*)/);
     if (streamMatch) return streamMatch[1].trim();
-    if ((codeType === 'html' || codeType === 'css') && text.trim().startsWith('<')) return text.trim();
+    if (language === 'html' && text.trim().startsWith('<')) return text.trim();
     return text.trim();
   };
 
@@ -72,7 +91,7 @@ export const GeminiPlayground: React.FC = () => {
 
   // Live React Renderer
   useEffect(() => {
-    if (!previewContainerRef.current || !previewContent || codeType !== 'react') return;
+    if (!previewContainerRef.current || !previewContent || language === 'html') return;
 
     const renderReact = () => {
       try {
@@ -86,7 +105,7 @@ export const GeminiPlayground: React.FC = () => {
         if (window.Babel) {
             const transformed = window.Babel.transform(cleanCode, {
               presets: ['react', 'env'],
-              filename: 'main.tsx'
+              filename: 'main.tsx' // .tsx extension handles both TS and JS parsing in Babel
             }).code;
     
             // Create a component factory
@@ -119,7 +138,7 @@ export const GeminiPlayground: React.FC = () => {
     const timer = setTimeout(renderReact, 100);
     return () => clearTimeout(timer);
 
-  }, [previewContent, codeType]);
+  }, [previewContent, language]);
 
   // Clean up root on unmount
   useEffect(() => {
@@ -161,6 +180,13 @@ export const GeminiPlayground: React.FC = () => {
     }
   };
 
+  // Helper to determine active label for the toolbar
+  const getActiveLabel = () => {
+     const langLabel = language === 'ts' ? 'TS' : language === 'js' ? 'JS' : 'HTML';
+     const styleLabel = style === 'tailwind' ? 'Tailwind' : 'CSS';
+     return `${langLabel} + ${styleLabel}`;
+  };
+
   return (
     <div className="w-full h-full flex flex-col animate-fade-in overflow-hidden">
       {/* Header - Reduced vertical space */}
@@ -197,15 +223,42 @@ export const GeminiPlayground: React.FC = () => {
           <div className="p-4 border-b border-surface-700/50 shrink-0 bg-surface-800/20 space-y-3">
              <div className="flex items-center justify-between">
                <Text weight="semibold" className="tracking-tight text-surface-100 text-sm">Control Panel</Text>
-               <span className="text-[10px] text-surface-500 uppercase tracking-wider font-mono">v1.0.2</span>
+               <span className="text-[10px] text-surface-500 uppercase tracking-wider font-mono">v2.2.0</span>
              </div>
-             <Tabs defaultValue={codeType} onValueChange={(v) => setCodeType(v as CodeType)} className="w-full">
-               <TabsList className="w-full grid grid-cols-3 bg-surface-900/80 h-8">
-                 <TabsTrigger value="react" className="text-xs py-1">React</TabsTrigger>
-                 <TabsTrigger value="html" className="text-xs py-1">HTML</TabsTrigger>
-                 <TabsTrigger value="css" className="text-xs py-1">CSS</TabsTrigger>
-               </TabsList>
-            </Tabs>
+             
+             {/* Language / Framework Selector */}
+             <div className="grid grid-cols-2 gap-2">
+                 {/* Dropdown 1: Language/Framework */}
+                 <div className="relative">
+                     <select 
+                        className="w-full appearance-none text-xs font-medium py-2 pl-3 pr-8 rounded-lg border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-surface-900 text-surface-200 border-surface-700 hover:bg-surface-800"
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value as Language)}
+                     >
+                        <option value="ts">React (TS)</option>
+                        <option value="js">React (JS)</option>
+                        <option value="html">HTML Only</option>
+                     </select>
+                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-3 h-3 text-surface-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                     </div>
+                 </div>
+
+                 {/* Dropdown 2: Style System */}
+                 <div className="relative">
+                     <select 
+                        className="w-full appearance-none text-xs font-medium py-2 pl-3 pr-8 rounded-lg border transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500/50 bg-surface-900 text-surface-200 border-surface-700 hover:bg-surface-800"
+                        value={style}
+                        onChange={(e) => setStyle(e.target.value as Style)}
+                     >
+                        <option value="tailwind">Tailwind</option>
+                        <option value="css">CSS</option>
+                     </select>
+                     <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-3 h-3 text-surface-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                     </div>
+                 </div>
+             </div>
           </div>
 
           {/* Scrollable Body Section */}
@@ -214,9 +267,10 @@ export const GeminiPlayground: React.FC = () => {
                 <TextArea 
                     label="Prompt"
                     placeholder={
-                        codeType === 'react' ? "e.g., Create a user profile card with TypeScript interfaces..." :
-                        codeType === 'html' ? "e.g., A modern pricing table with 3 tiers and hover effects..." :
-                        "e.g., A neon glowing button with a pulse animation..."
+                        language === 'ts' ? "e.g., Create a user profile card with TypeScript interfaces..." :
+                        language === 'js' ? "e.g., A counter component using hooks (no types)..." :
+                        style === 'tailwind' ? "e.g., A responsive pricing table using utility classes..." :
+                        "e.g., A neon glowing button with pure CSS keyframes..."
                     }
                     className="flex-1 min-h-[80px] resize-none font-mono text-sm leading-relaxed bg-surface-950/50 focus:bg-surface-950 transition-colors border-surface-700/50"
                     value={prompt}
@@ -231,8 +285,8 @@ export const GeminiPlayground: React.FC = () => {
                     <span className="font-mono text-primary-400">gemini-2.5-flash</span>
                 </div>
                 <div className="flex items-center justify-between text-[11px] text-surface-400">
-                    <span>Latency</span>
-                    <span className="font-mono text-green-400">Real-time</span>
+                    <span>Config</span>
+                    <span className="font-mono text-indigo-400">{getActiveLabel()}</span>
                 </div>
             </div>
           </div>
@@ -298,7 +352,7 @@ export const GeminiPlayground: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2 px-2">
                      <span className={cn("w-2 h-2 rounded-full", isStreaming ? "bg-yellow-400 animate-pulse" : "bg-green-400")}></span>
-                     <span className="text-[10px] uppercase tracking-wider text-surface-500 font-bold hidden sm:inline-block">{codeType} Environment</span>
+                     <span className="text-[10px] uppercase tracking-wider text-surface-500 font-bold hidden sm:inline-block">{getActiveLabel()}</span>
                 </div>
             </div>
 
@@ -314,7 +368,7 @@ export const GeminiPlayground: React.FC = () => {
                 )}>
                     <Terminal 
                       className="h-full w-full border-none rounded-none"
-                      title={`nexus-ai ~ ${codeType}-generator`} 
+                      title={`nexus-ai ~ ${codeType}`} 
                       action={
                         <div className="flex items-center gap-2">
                             {/* Status Badge */}
@@ -379,7 +433,7 @@ export const GeminiPlayground: React.FC = () => {
                      </div>
 
                      <div className="flex-1 overflow-auto custom-scrollbar relative bg-surface-950/50">
-                        {codeType === 'react' ? (
+                        {language !== 'html' ? (
                             // React Mount Point
                             <div ref={previewContainerRef} className="w-full h-full animate-fade-in">
                                 {!previewContent && (
