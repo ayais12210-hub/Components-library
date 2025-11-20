@@ -1,0 +1,5 @@
+{
+  "name": "Nexus UI Kit & Gemini Playground",
+  "description": "A high-performance, modular React component library utilizing Tailwind CSS and Atomic Design principles. Includes a live Gemini AI integration to demonstrate component usage in real-world scenarios.",
+  "requestFramePermissions": []
+}
