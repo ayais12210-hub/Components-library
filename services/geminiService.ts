@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentStreamResult } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 // IMPORTANT: The API key must be obtained exclusively from process.env.API_KEY
 const getClient = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -27,20 +27,20 @@ export async function streamGeminiResponse(
   try {
     const ai = getClient();
     
-    // Using gemini-2.5-flash for high speed execution
-    const response: GenerateContentStreamResult = await ai.models.generateContentStream({
-      model: 'gemini-2.5-flash',
+    // Using gemini-3-pro-preview for advanced, context-aware code generation
+    const response = await ai.models.generateContentStream({
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        // Select instruction based on user preference
         systemInstruction: SYSTEM_INSTRUCTIONS[codeType],
         temperature: 0.2, 
       }
     });
 
     for await (const chunk of response) {
-      if (chunk.text) {
-        onChunk(chunk.text);
+      const text = chunk.text;
+      if (text) {
+        onChunk(text);
       }
     }
   } catch (error: any) {
@@ -52,7 +52,7 @@ export async function streamGeminiResponse(
 export async function analyzeCode(code: string): Promise<string> {
     const ai = getClient();
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3-pro-preview',
         contents: `Analyze this code for accessibility, performance, and best practices. Return a brief summary. \n\n ${code}`,
     });
     return response.text || "No analysis generated.";
